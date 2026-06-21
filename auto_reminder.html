@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Напоминалка для автомобиля</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #fff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #d8dee9;
+      --primary: #1769aa;
+      --danger: #b42318;
+      --warn: #8a5a00;
+      --ok: #137333;
+      --danger-bg: #ffe3e0;
+      --warn-bg: #fff2cc;
+      --ok-bg: #ddf4e4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 { margin: 0; font-size: 30px; line-height: 1.15; }
+    h2 { margin: 0; font-size: 20px; }
+
+    .subtitle, .note {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .subtitle { margin: 7px 0 0; }
+    .note { margin: 10px 0 0; }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(30, 42, 70, 0.08);
+      margin-bottom: 14px;
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) repeat(3, 82px) repeat(3, minmax(120px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    select, input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 15px;
+      background: white;
+      color: var(--text);
+    }
+
+    input:focus, select:focus {
+      outline: 2px solid rgba(23, 105, 170, 0.22);
+      border-color: var(--primary);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-size: 15px;
+      cursor: pointer;
+      background: #e9eef6;
+      color: var(--text);
+    }
+
+    button.primary { background: var(--primary); color: white; }
+    button.danger { background: #fbe3e1; color: var(--danger); }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .filter-button.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .service-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .service-button.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .mini-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .vehicle-confirm {
+      display: none;
+      color: var(--ok);
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .summary-item {
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 2px;
+    }
+
+    .summary-item span { color: var(--muted); font-size: 14px; }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th:last-child, td:last-child { border-right: 0; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    th {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      background: #f8fafd;
+    }
+
+    .cell-title {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .cell-main {
+      display: block;
+      font-weight: 700;
+    }
+
+    .cell-sub {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 3px;
+    }
+
+    tr { cursor: pointer; }
+    tr.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+    .status {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .overdue { background: var(--danger-bg); color: var(--danger); }
+    .soon { background: var(--warn-bg); color: var(--warn); }
+    .ok { background: var(--ok-bg); color: var(--ok); }
+
+    .row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .row-actions button {
+      min-height: 34px;
+      padding: 7px 10px;
+      font-size: 14px;
+    }
+
+    .empty {
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      margin-top: 14px;
+    }
+
+    .alert {
+      display: none;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid #f2c1bd;
+      background: var(--danger-bg);
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .edit-notice {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--warn-bg);
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .edit-notice.active {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .edit-notice button {
+      min-height: 32px;
+      padding: 6px 10px;
+      background: #fff7dc;
+      color: var(--warn);
+      border: 1px solid #e7c873;
+    }
+
+    .edit-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-button {
+      width: 34px;
+      min-width: 34px;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    @media (max-width: 920px) {
+      header { align-items: flex-start; flex-direction: column; }
+      .top-grid, .form-grid, .summary { grid-template-columns: 1fr; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; background: white; }
+      td { border-bottom: 0; border-right: 0; padding: 8px 10px; }
+      td::before { content: attr(data-label); display: block; color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Напоминалка для автомобиля</h1>
+        <p class="subtitle">Техосмотр и страховка по дате, масло и свечи по пробегу.</p>
+      </div>
+      <button id="notifyButton" type="button">Включить уведомления</button>
+    </header>
+
+    <div id="alert" class="alert"></div>
+
+    <section class="panel">
+      <div class="top-grid">
+        <div>
+          <label for="vehicleName">Машина или госномер</label>
+          <input id="vehicleName" type="text" placeholder="Например: Toyota 777">
+          <div class="mini-actions">
+            <select id="vehicleSelect" aria-label="Выбрать автомобиль">
+              <option value="">Все автомобили</option>
+            </select>
+            <button id="addVehicleButton" class="primary" type="button">Добавить автомобиль</button>
+          </div>
+          <div id="vehicleConfirm" class="vehicle-confirm"></div>
+        </div>
+        <div>
+          <label for="currentMileage">Текущий пробег машины, км</label>
+          <input id="currentMileage" type="number" min="0" step="1" placeholder="Например: 85000">
+        </div>
+        <div>
+          <label for="avgDailyMileage">Среднедневной пробег, км</label>
+          <input id="avgDailyMileage" type="number" min="0" step="1" placeholder="Например: 40">
+        </div>
+        <div>
+          <label for="warningKm">Предупредить за, км</label>
+          <input id="warningKm" type="number" min="0" step="100" placeholder="1000">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="updateMileageButton" class="primary" type="button">Обновить текущий пробег</button>
+      </div>
+      <p class="note">Введите текущий и среднедневной пробег. Программа покажет, что уже пора менять, и рассчитает примерную дату замены масла.</p>
+    </section>
+
+    <section class="panel">
+      <div class="service-switcher" aria-label="Быстрый выбор обслуживания">
+        <button class="service-button active" type="button" data-kind="all">Все</button>
+        <button class="service-button" type="button" data-kind="inspection">Техосмотр</button>
+        <button class="service-button" type="button" data-kind="insurance">Страховка</button>
+        <button class="service-button" type="button" data-kind="engine_oil">Масло в двигателе</button>
+        <button class="service-button" type="button" data-kind="gearbox_oil">Масло в коробке</button>
+        <button class="service-button" type="button" data-kind="spark_plugs">Свечи</button>
+      </div>
+      <form id="reminderForm">
+        <div class="form-grid">
+          <div>
+            <label for="kind">Что обслуживали</label>
+            <select id="kind" required>
+              <option value="insurance">Страховка на машину</option>
+              <option value="inspection">Техосмотр</option>
+              <option value="engine_oil">Масло в двигателе</option>
+              <option value="gearbox_oil">Масло в коробке</option>
+              <option value="spark_plugs">Свечи в двигателе</option>
+            </select>
+          </div>
+          <div>
+            <label for="day">День</label>
+            <input id="day" type="number" min="1" max="31" placeholder="21" required>
+          </div>
+          <div>
+            <label for="month">Месяц</label>
+            <input id="month" type="number" min="1" max="12" placeholder="6" required>
+          </div>
+          <div>
+            <label for="year">Год</label>
+            <input id="year" type="number" min="2020" max="2100" placeholder="2025" required>
+          </div>
+          <div>
+            <label for="lastMileage">Пробег при замене</label>
+            <input id="lastMileage" type="number" min="0" step="1" placeholder="80000">
+          </div>
+          <div>
+            <label for="intervalKm">Через сколько км</label>
+            <input id="intervalKm" type="number" min="0" step="500" placeholder="50000">
+          </div>
+          <div>
+            <label for="note">Заметка</label>
+            <input id="note" type="text" placeholder="Например: фильтр тоже заменен">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="saveButton" class="primary" type="submit">Сохранить</button>
+          <button id="clearButton" type="button">Очистить</button>
+          <button id="deleteButton" class="danger" type="button">Удалить выбранное</button>
+          <button id="exportButton" type="button">Сохранить копию</button>
+          <button id="csvExportButton" type="button">Экспорт в Excel</button>
+          <label>
+            <input id="importInput" type="file" accept="application/json" hidden>
+            <button id="importButton" type="button">Загрузить копию</button>
+          </label>
+        </div>
+      </form>
+      <div id="editNotice" class="edit-notice">
+        <span>Режим редактирования: измените данные и нажмите "Сохранить изменения".</span>
+        <div class="edit-controls">
+          <button id="cancelEditButton" type="button">Отмена</button>
+          <button id="closeEditButton" class="icon-button" type="button" title="Закрыть редактирование">×</button>
+        </div>
+      </div>
+      <p class="note" id="ruleHint"></p>
+    </section>
+
+    <section class="summary" aria-label="Сводка">
+      <div class="summary-item"><strong id="overdueCount">0</strong><span>Уже пора</span></div>
+      <div class="summary-item"><strong id="soonCount">0</strong><span>Скоро подойдет</span></div>
+      <div class="summary-item"><strong id="okCount">0</strong><span>Еще не скоро</span></div>
+    </section>
+
+    <section class="filter-bar" aria-label="Фильтр">
+      <button class="filter-button active" type="button" data-filter="all">Все</button>
+      <button class="filter-button" type="button" data-filter="overdue">Уже пора</button>
+      <button class="filter-button" type="button" data-filter="soon">Скоро подойдет</button>
+      <button class="filter-button" type="button" data-filter="ok">Еще не скоро</button>
+    </section>
+
+    <section class="panel">
+      <h2>Ваши напоминания</h2>
+      <div id="empty" class="empty">Пока нет напоминаний. Добавьте первый срок выше.</div>
+      <table id="table" hidden>
+        <thead>
+          <tr>
+            <th>Машина</th>
+            <th>Что</th>
+            <th>Последний раз</th>
+            <th>Следующий раз</th>
+            <th>Рекомендуемая дата</th>
+            <th>Статус</th>
+            <th>Заметка</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "car-reminders-v2";
+    const OLD_STORAGE_KEY = "car-reminders-v1";
+    const SETTINGS_KEY = "car-reminder-settings-v1";
+    const WARNING_DAYS = 30;
+    const DEFAULT_WARNING_KM = 1000;
+
+    const RULES = {
+      insurance: { title: "Страховка на машину", years: 1, days: 0, km: 0, hint: "Страховка считается на 1 год от указанной даты." },
+      inspection: { title: "Техосмотр", years: 1, days: 0, km: 0, hint: "Техосмотр считается на 1 год. Например: 21.06.2025 -> 21.06.2026." },
+      engine_oil: { title: "Масло в двигателе", days: 0, km: 5000, hint: "Масло в двигателе обычно меняется через 4000-7000 км. Интервал можно изменить." },
+      gearbox_oil: { title: "Масло в коробке", days: 0, km: 50000, hint: "Масло в коробке считается через 50000 км от пробега последней замены." },
+      spark_plugs: { title: "Свечи в двигателе", days: 0, km: 20000, hint: "Свечи считаются примерно через 20000 км от пробега последней замены." }
+    };
+
+    const form = document.getElementById("reminderForm");
+    const vehicleNameInput = document.getElementById("vehicleName");
+    const vehicleSelect = document.getElementById("vehicleSelect");
+    const addVehicleButton = document.getElementById("addVehicleButton");
+    const vehicleConfirm = document.getElementById("vehicleConfirm");
+    const currentMileageInput = document.getElementById("currentMileage");
+    const avgDailyMileageInput = document.getElementById("avgDailyMileage");
+    const warningKmInput = document.getElementById("warningKm");
+    const kindInput = document.getElementById("kind");
+    const dayInput = document.getElementById("day");
+    const monthInput = document.getElementById("month");
+    const yearInput = document.getElementById("year");
+    const lastMileageInput = document.getElementById("lastMileage");
+    const intervalKmInput = document.getElementById("intervalKm");
+    const noteInput = document.getElementById("note");
+    const saveButton = document.getElementById("saveButton");
+    const editNotice = document.getElementById("editNotice");
+    const cancelEditButton = document.getElementById("cancelEditButton");
+    const closeEditButton = document.getElementById("closeEditButton");
+    const tbody = document.getElementById("tbody");
+    const table = document.getElementById("table");
+    const empty = document.getElementById("empty");
+    const alertBox = document.getElementById("alert");
+    const notifyButton = document.getElementById("notifyButton");
+    const importInput = document.getElementById("importInput");
+    const ruleHint = document.getElementById("ruleHint");
+    let reminders = loadReminders();
+    let selectedId = null;
+    let activeFilter = "all";
+    let activeService = "all";
+    let vehicles = [];
+
+    function loadReminders() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        if (saved.length) return saved;
+      } catch {}
+      try {
+        const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || "[]");
+        return old.map((item) => ({
+          id: item.id || makeId(),
+          kind: "insurance",
+          lastDate: item.date,
+          lastMileage: "",
+          intervalKm: 0,
+          vehicleName: "",
+          note: item.note || ""
+        }));
+      } catch {
+        return [];
+      }
+    }
+
+    function loadSettings() {
+      try {
+        const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+        vehicles = Array.isArray(settings.vehicles) ? settings.vehicles : [];
+        if (settings.vehicleName) vehicleNameInput.value = settings.vehicleName;
+        if (settings.currentMileage) currentMileageInput.value = settings.currentMileage;
+        if (settings.avgDailyMileage) avgDailyMileageInput.value = settings.avgDailyMileage;
+        warningKmInput.value = settings.warningKm || String(DEFAULT_WARNING_KM);
+      } catch {}
+      if (!warningKmInput.value) warningKmInput.value = String(DEFAULT_WARNING_KM);
+    }
+
+    function saveReminders() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reminders));
+    }
+
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        vehicleName: vehicleNameInput.value.trim(),
+        vehicles,
+        currentMileage: currentMileageInput.value.trim(),
+        avgDailyMileage: avgDailyMileageInput.value.trim(),
+        warningKm: warningKmInput.value.trim()
+      }));
+    }
+
+    function renderVehicleOptions() {
+      vehicleSelect.innerHTML = '<option value="">Все автомобили</option>';
+      for (const vehicle of vehicles) {
+        const option = document.createElement("option");
+        option.value = vehicle;
+        option.textContent = vehicle;
+        vehicleSelect.appendChild(option);
+      }
+      vehicleSelect.value = vehicles.includes(vehicleNameInput.value.trim()) ? vehicleNameInput.value.trim() : "";
+    }
+
+    function addVehicleFromInput() {
+      const vehicle = vehicleNameInput.value.trim();
+      if (!vehicle) {
+        alert("Введите название машины или госномер.");
+        vehicleNameInput.focus();
+        return;
+      }
+      if (!vehicles.includes(vehicle)) vehicles.push(vehicle);
+      renderVehicleOptions();
+      vehicleSelect.value = vehicle;
+      vehicleConfirm.textContent = `Автомобиль "${vehicle}" добавлен.`;
+      vehicleConfirm.style.display = "block";
+      saveSettings();
+      render();
+    }
+
+    function makeId() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+    }
+
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function makeDate(day, month, year) {
+      const result = new Date(year, month - 1, day);
+      if (result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day) return null;
+      result.setHours(0, 0, 0, 0);
+      return result;
+    }
+
+    function addDays(date, days) {
+      const result = new Date(date);
+      result.setDate(result.getDate() + days);
+      return result;
+    }
+
+    function addYears(date, years) {
+      const result = new Date(date);
+      result.setFullYear(result.getFullYear() + years);
+      return result;
+    }
+
+    function formatDate(date) {
+      if (!date) return "-";
+      return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+    }
+
+    function formatKm(value) {
+      if (value === "" || value === null || Number.isNaN(Number(value))) return "-";
+      return `${Number(value).toLocaleString("ru-RU")} км`;
+    }
+
+    function daysUntil(date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return Math.round((date - today) / 86400000);
+    }
+
+    function getCurrentMileage() {
+      const value = Number(currentMileageInput.value);
+      return Number.isFinite(value) && value >= 0 ? value : null;
+    }
+
+    function getAverageDailyMileage() {
+      const value = Number(avgDailyMileageInput.value);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    function getWarningKm() {
+      const value = Number(warningKmInput.value);
+      return Number.isFinite(value) && value >= 0 ? value : DEFAULT_WARNING_KM;
+    }
+
+    function estimateMileageDate(reminder, details) {
+      if (reminder.kind !== "engine_oil" && reminder.kind !== "gearbox_oil") return null;
+      const averageDailyMileage = getAverageDailyMileage();
+      if (averageDailyMileage === null || details.lastDate === null || !details.intervalKm) return null;
+      return addDays(details.lastDate, Math.ceil(details.intervalKm / averageDailyMileage));
+    }
+
+    function recommendedDateText(reminder, details) {
+      const estimatedDate = estimateMileageDate(reminder, details);
+      if (estimatedDate) return formatDate(estimatedDate);
+      if (details.dueDate) return formatDate(details.dueDate);
+      if (details.dueMileage !== null) {
+        const averageDailyMileage = getAverageDailyMileage();
+        if (averageDailyMileage === null) return "введите среднедневной пробег";
+      }
+      return "-";
+    }
+
+    function getDetails(reminder) {
+      const rule = RULES[reminder.kind] || RULES.inspection;
+      const lastDate = reminder.lastDate ? new Date(reminder.lastDate) : null;
+      const intervalKm = Number(reminder.intervalKm || rule.km || 0);
+      const lastMileage = reminder.lastMileage === "" ? null : Number(reminder.lastMileage);
+      const dueDate = lastDate
+        ? rule.years ? addYears(lastDate, rule.years) : rule.days ? addDays(lastDate, rule.days) : null
+        : null;
+      const dueMileage = intervalKm && Number.isFinite(lastMileage) ? lastMileage + intervalKm : null;
+      return { rule, lastDate, intervalKm, lastMileage, dueDate, dueMileage };
+    }
+
+    function statusFor(reminder) {
+      const currentMileage = getCurrentMileage();
+      const details = getDetails(reminder);
+      const reasons = [];
+      let type = "ok";
+
+      if (details.dueDate) {
+        const days = daysUntil(details.dueDate);
+        if (days < 0) {
+          type = "overdue";
+          reasons.push(`по дате просрочено на ${Math.abs(days)} дн.`);
+        } else if (days === 0) {
+          type = "soon";
+          reasons.push("по дате сегодня");
+        } else if (days <= WARNING_DAYS) {
+          type = "soon";
+          reasons.push(`по дате осталось ${days} дн.`);
+        } else {
+          reasons.push(`по дате осталось ${days} дн.`);
+        }
+      }
+
+      if (details.dueMileage !== null && currentMileage !== null) {
+        const kmLeft = details.dueMileage - currentMileage;
+        if (kmLeft <= 0) {
+          type = "overdue";
+          reasons.push(`по пробегу превышено на ${Math.abs(kmLeft)} км`);
+        } else if (kmLeft <= getWarningKm()) {
+          if (type !== "overdue") type = "soon";
+          reasons.push(`по пробегу осталось ${kmLeft} км`);
+        }
+      }
+
+      if (!reasons.length) {
+        reasons.push(details.dueMileage !== null && currentMileage === null ? "введите текущий пробег" : "еще не скоро");
+      }
+
+      return { type, text: reasons.join("; ") };
+    }
+
+    function sortedReminders() {
+      return [...reminders].sort((a, b) => {
+        const rank = { overdue: 0, soon: 1, ok: 2 };
+        const diff = rank[statusFor(a).type] - rank[statusFor(b).type];
+        if (diff) return diff;
+        const ad = getDetails(a);
+        const bd = getDetails(b);
+        return (ad.dueMileage || Number(ad.dueDate) || 0) - (bd.dueMileage || Number(bd.dueDate) || 0);
+      });
+    }
+
+    function render() {
+      tbody.innerHTML = "";
+      const selectedVehicle = vehicleNameInput.value.trim();
+      const allSorted = sortedReminders().filter((reminder) => {
+        const matchesVehicle = !selectedVehicle || reminder.vehicleName === selectedVehicle;
+        const matchesService = activeService === "all" || reminder.kind === activeService;
+        return matchesVehicle && matchesService;
+      });
+      const sorted = activeFilter === "all"
+        ? allSorted
+        : allSorted.filter((reminder) => statusFor(reminder).type === activeFilter);
+      table.hidden = sorted.length === 0;
+      empty.hidden = sorted.length > 0;
+      let overdue = 0;
+      let soon = 0;
+      let ok = 0;
+      const urgent = [];
+
+      for (const reminder of allSorted) {
+        const details = getDetails(reminder);
+        const status = statusFor(reminder);
+        if (status.type === "overdue") overdue += 1;
+        if (status.type === "soon") soon += 1;
+        if (status.type === "ok") ok += 1;
+        if (status.type !== "ok") urgent.push(`${details.rule.title}: ${status.text}`);
+      }
+
+      for (const reminder of sorted) {
+        const details = getDetails(reminder);
+        const status = statusFor(reminder);
+        const lastDateText = details.lastDate ? formatDate(details.lastDate) : "-";
+        const lastMileageText = details.lastMileage !== null ? formatKm(details.lastMileage) : "";
+        const nextDateText = details.dueDate ? formatDate(details.dueDate) : "";
+        const nextMileageText = details.dueMileage !== null ? formatKm(details.dueMileage) : "";
+        const nextText = [nextDateText, nextMileageText].filter(Boolean).join(", ") || "-";
+        const recommendedText = recommendedDateText(reminder, details);
+        const row = document.createElement("tr");
+        row.className = selectedId === reminder.id ? "selected" : "";
+        row.addEventListener("click", () => selectReminder(reminder.id));
+        row.innerHTML = `
+          <td data-label="Машина"><span class="cell-main">${escapeHtml(reminder.vehicleName || vehicleNameInput.value.trim() || "-")}</span></td>
+          <td data-label="Что"><span class="cell-main">${escapeHtml(details.rule.title)}</span></td>
+          <td data-label="Последний раз">
+            <span class="cell-title">Дата</span><span class="cell-main">${escapeHtml(lastDateText)}</span>
+            ${lastMileageText ? `<span class="cell-sub">Пробег: ${escapeHtml(lastMileageText)}</span>` : ""}
+          </td>
+          <td data-label="Следующий раз">
+            ${nextDateText ? `<span class="cell-title">Дата</span><span class="cell-main">${escapeHtml(nextDateText)}</span>` : ""}
+            ${nextMileageText ? `<span class="cell-sub">Пробег: ${escapeHtml(nextMileageText)}</span>` : nextDateText ? "" : `<span class="cell-main">${escapeHtml(nextText)}</span>`}
+          </td>
+          <td data-label="Рекомендуемая дата"><span class="cell-main">${escapeHtml(recommendedText)}</span></td>
+          <td data-label="Статус"><span class="status ${status.type}">${escapeHtml(status.text)}</span></td>
+          <td data-label="Заметка">${escapeHtml(reminder.note || "")}</td>
+          <td data-label="Действия">
+            <div class="row-actions">
+              <button type="button" data-action="edit">Изменить</button>
+              <button type="button" class="danger" data-action="delete">Удалить</button>
+            </div>
+          </td>
+        `;
+        row.querySelector('[data-action="edit"]').addEventListener("click", (event) => {
+          event.stopPropagation();
+          selectReminder(reminder.id);
+          form.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        row.querySelector('[data-action="delete"]').addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteReminder(reminder.id);
+        });
+        tbody.appendChild(row);
+      }
+
+      document.getElementById("overdueCount").textContent = overdue;
+      document.getElementById("soonCount").textContent = soon;
+      document.getElementById("okCount").textContent = ok;
+      alertBox.style.display = urgent.length ? "block" : "none";
+      alertBox.innerHTML = urgent.length ? "Важные напоминания:<br>" + urgent.map(escapeHtml).join("<br>") : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function updateRuleFields() {
+      const rule = RULES[kindInput.value] || RULES.inspection;
+      ruleHint.textContent = rule.hint;
+      intervalKmInput.value = rule.km || "";
+      intervalKmInput.disabled = !rule.km;
+      lastMileageInput.disabled = !rule.km;
+      lastMileageInput.required = Boolean(rule.km);
+      document.querySelectorAll(".service-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.kind === activeService);
+      });
+    }
+
+    function findReminderForKind(kind) {
+      const vehicleName = vehicleNameInput.value.trim();
+      if (vehicleName) {
+        const exact = reminders.find((item) => item.kind === kind && item.vehicleName === vehicleName);
+        if (exact) return exact;
+      }
+      return reminders.find((item) => item.kind === kind);
+    }
+
+    function resetServiceFields() {
+      selectedId = null;
+      dayInput.value = "";
+      monthInput.value = "";
+      yearInput.value = "";
+      lastMileageInput.value = "";
+      intervalKmInput.value = "";
+      noteInput.value = "";
+      saveButton.textContent = "Сохранить";
+      editNotice.classList.remove("active");
+    }
+
+    function chooseService(kind) {
+      activeService = kind;
+      document.querySelectorAll(".service-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.kind === activeService);
+      });
+
+      if (kind === "all") {
+        resetServiceFields();
+        kindInput.value = "inspection";
+        updateRuleFields();
+        render();
+        return;
+      }
+
+      kindInput.value = kind;
+      const existing = findReminderForKind(kind);
+      if (existing) {
+        selectReminder(existing.id);
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      resetServiceFields();
+      kindInput.value = kind;
+      updateRuleFields();
+      render();
+    }
+
+    function selectReminder(id) {
+      const reminder = reminders.find((item) => item.id === id);
+      if (!reminder) return;
+      const date = reminder.lastDate ? new Date(reminder.lastDate) : null;
+      selectedId = id;
+      vehicleNameInput.value = reminder.vehicleName || vehicleNameInput.value;
+      if (reminder.vehicleName && !vehicles.includes(reminder.vehicleName)) vehicles.push(reminder.vehicleName);
+      renderVehicleOptions();
+      saveSettings();
+      activeService = reminder.kind;
+      kindInput.value = reminder.kind;
+      updateRuleFields();
+      if (date) {
+        dayInput.value = date.getDate();
+        monthInput.value = date.getMonth() + 1;
+        yearInput.value = date.getFullYear();
+      }
+      lastMileageInput.value = reminder.lastMileage || "";
+      intervalKmInput.value = reminder.intervalKm || "";
+      noteInput.value = reminder.note || "";
+      saveButton.textContent = "Сохранить изменения";
+      editNotice.classList.add("active");
+      render();
+    }
+
+    function clearForm() {
+      const currentVehicle = vehicleNameInput.value.trim() || vehicleSelect.value;
+      selectedId = null;
+      form.reset();
+      vehicleNameInput.value = currentVehicle;
+      renderVehicleOptions();
+      kindInput.value = "inspection";
+      saveButton.textContent = "Сохранить";
+      editNotice.classList.remove("active");
+      updateRuleFields();
+      render();
+    }
+
+    function deleteReminder(id) {
+      const reminder = reminders.find((item) => item.id === id);
+      if (!reminder) return;
+      if (!confirm(`Удалить напоминание "${getDetails(reminder).rule.title}"?`)) return;
+      reminders = reminders.filter((item) => item.id !== id);
+      saveReminders();
+      clearForm();
+    }
+
+    function csvValue(value) {
+      return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    }
+
+    function downloadFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function exportCsv() {
+      const header = ["Машина", "Что", "Последняя дата", "Пробег при замене", "Следующая дата", "Следующий пробег", "Рекомендуемая дата", "Статус", "Заметка"];
+      const rows = sortedReminders().map((reminder) => {
+        const details = getDetails(reminder);
+        const status = statusFor(reminder);
+        return [
+          reminder.vehicleName || vehicleNameInput.value.trim(),
+          details.rule.title,
+          details.lastDate ? formatDate(details.lastDate) : "",
+          details.lastMileage !== null ? details.lastMileage : "",
+          details.dueDate ? formatDate(details.dueDate) : "",
+          details.dueMileage !== null ? details.dueMileage : "",
+          recommendedDateText(reminder, details),
+          status.text,
+          reminder.note || ""
+        ];
+      });
+      const csv = [header, ...rows].map((row) => row.map(csvValue).join(";")).join("\r\n");
+      downloadFile("car-reminders.csv", "\ufeff" + csv, "text/csv;charset=utf-8");
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const date = makeDate(Number(dayInput.value), Number(monthInput.value), Number(yearInput.value));
+      const rule = RULES[kindInput.value] || RULES.inspection;
+      const lastMileage = lastMileageInput.value.trim();
+      const intervalKm = intervalKmInput.value.trim();
+
+      if (!date) {
+        alert("Введите правильную дату.");
+        return;
+      }
+
+      if (rule.km && lastMileage === "") {
+        alert("Введите пробег, на котором была замена.");
+        return;
+      }
+
+      const reminder = {
+        id: selectedId || makeId(),
+        kind: kindInput.value,
+        lastDate: date.getTime(),
+        lastMileage: rule.km ? Number(lastMileage) : "",
+        intervalKm: rule.km ? Number(intervalKm || rule.km) : 0,
+        vehicleName: vehicleNameInput.value.trim(),
+        note: noteInput.value.trim()
+      };
+
+      if (reminder.vehicleName && !vehicles.includes(reminder.vehicleName)) vehicles.push(reminder.vehicleName);
+      reminders = selectedId ? reminders.map((item) => item.id === selectedId ? reminder : item) : [...reminders, reminder];
+      renderVehicleOptions();
+      saveSettings();
+      saveReminders();
+      clearForm();
+    });
+
+    vehicleNameInput.addEventListener("input", () => {
+      saveSettings();
+      vehicleConfirm.style.display = "none";
+      render();
+    });
+
+    vehicleSelect.addEventListener("change", () => {
+      vehicleNameInput.value = vehicleSelect.value;
+      saveSettings();
+      clearForm();
+      render();
+    });
+
+    addVehicleButton.addEventListener("click", addVehicleFromInput);
+
+    currentMileageInput.addEventListener("input", () => {
+      saveSettings();
+      render();
+    });
+
+    avgDailyMileageInput.addEventListener("input", () => {
+      saveSettings();
+      render();
+    });
+
+    warningKmInput.addEventListener("input", () => {
+      saveSettings();
+      render();
+    });
+
+    kindInput.addEventListener("change", () => chooseService(kindInput.value));
+    document.getElementById("clearButton").addEventListener("click", clearForm);
+    cancelEditButton.addEventListener("click", clearForm);
+    closeEditButton.addEventListener("click", clearForm);
+    document.querySelectorAll(".service-button").forEach((button) => {
+      button.addEventListener("click", () => chooseService(button.dataset.kind));
+    });
+    document.getElementById("updateMileageButton").addEventListener("click", () => {
+      saveSettings();
+      render();
+      alert("Текущий пробег обновлен.");
+    });
+
+    document.querySelectorAll(".filter-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        activeFilter = button.dataset.filter;
+        document.querySelectorAll(".filter-button").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        render();
+      });
+    });
+
+    document.getElementById("deleteButton").addEventListener("click", () => {
+      if (!selectedId) {
+        alert("Сначала выберите строку.");
+        return;
+      }
+      deleteReminder(selectedId);
+    });
+
+    document.getElementById("exportButton").addEventListener("click", () => {
+      downloadFile("car-reminders-backup.json", JSON.stringify(reminders, null, 2), "application/json;charset=utf-8");
+    });
+
+    document.getElementById("csvExportButton").addEventListener("click", exportCsv);
+
+    document.getElementById("importButton").addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async () => {
+      const file = importInput.files[0];
+      if (!file) return;
+      try {
+        const imported = JSON.parse(await file.text());
+        if (!Array.isArray(imported)) throw new Error("bad file");
+        reminders = imported.filter((item) => item.kind && item.lastDate);
+        saveReminders();
+        selectedId = null;
+        render();
+      } catch {
+        alert("Не удалось загрузить файл.");
+      } finally {
+        importInput.value = "";
+      }
+    });
+
+    notifyButton.addEventListener("click", async () => {
+      if (!("Notification" in window)) {
+        alert("Ваш браузер не поддерживает уведомления.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const urgent = sortedReminders().filter((item) => statusFor(item).type !== "ok");
+      new Notification("Напоминалка для автомобиля", {
+        body: urgent.length ? urgent.map((item) => `${getDetails(item).rule.title}: ${statusFor(item).text}`).join("\n") : "Срочных напоминаний нет."
+      });
+    });
+
+    loadSettings();
+    renderVehicleOptions();
+    clearForm();
+  </script>
+</body>
+</html>
