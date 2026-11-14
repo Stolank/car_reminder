@@ -1,0 +1,8 @@
+*.zip
+car-reminders-backup*.json
+car-reminders*.csv
+output/
+node_modules/
+reminders.json
+.reminders-*.tmp
+__pycache__/
