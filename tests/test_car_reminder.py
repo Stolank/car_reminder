@@ -434,7 +434,7 @@ class InterfaceTests(unittest.TestCase):
             self.root.geometry(f"{width}x{height}")
             self.root.update()
             self.assertTrue(self.app.actions.winfo_ismapped())
-            toolbar = self.app.add_button.master
+            toolbar = self.app.toolbar_controls
             children = sorted(toolbar.winfo_children(), key=lambda child: child.winfo_x())
             for left, right in zip(children, children[1:]):
                 self.assertLessEqual(left.winfo_x() + left.winfo_width(), right.winfo_x())
@@ -443,6 +443,66 @@ class InterfaceTests(unittest.TestCase):
         self.app.clear_selection()
         self.root.update_idletasks()
         self.assertFalse(self.app.actions.winfo_ismapped())
+
+    def test_keyboard_workflow_and_layout_at_high_scaling(self):
+        original_scaling = self.root.tk.call("tk", "scaling")
+        self.addCleanup(lambda: self.root.tk.call("tk", "scaling", original_scaling))
+
+        def press(widget, key):
+            self.assertIs(self.root.focus_get(), widget)
+            widget.event_generate("<KeyPress-" + key + ">")
+            if widget.winfo_exists():
+                widget.event_generate("<KeyRelease-" + key + ">")
+            self.root.update()
+
+        def assert_fits(parent):
+            for child in parent.winfo_children():
+                if not child.winfo_ismapped() or isinstance(child, tk.Toplevel):
+                    continue
+                self.assertLessEqual(child.winfo_x() + child.winfo_width(), parent.winfo_width())
+                self.assertLessEqual(child.winfo_y() + child.winfo_height(), parent.winfo_height())
+                if isinstance(child, (reminder.ttk.Button, reminder.ttk.Menubutton, reminder.ttk.Checkbutton)):
+                    self.assertGreaterEqual(child.winfo_width(), child.winfo_reqwidth(), child.cget("text"))
+                    self.assertGreaterEqual(child.winfo_height(), child.winfo_reqheight(), child.cget("text"))
+                assert_fits(child)
+
+        for percent in (150, 200):
+            with self.subTest(scaling=percent):
+                self.app.close()
+                self.root = tk.Tk()
+                self.root.tk.call("tk", "scaling", (96 / 72) * percent / 100)
+                self.app = reminder.CarReminderApp(self.root)
+                self.root.geometry("720x380")
+                self.root.update()
+                before = len(self.app.reminders)
+                add = self.app.add_button
+                add.focus_force()
+                self.root.update()
+                press(add, "space")
+                dialog = self.app.editor
+                self.assertIsNotNone(dialog)
+                assert_fits(dialog)
+                press(dialog.date_entry, "Tab")
+                press(dialog.calendar_button, "Return")
+                picker, = [child for child in dialog.winfo_children() if isinstance(child, reminder.DatePicker)]
+                assert_fits(picker)
+                first = picker.day_buttons[picker.selected]
+                expected = reminder.format_date(picker.selected + timedelta(days=1))
+                press(first, "Right")
+                press(self.root.focus_get(), "Return")
+                self.assertEqual(dialog.date_var.get(), expected)
+                press(dialog.calendar_button, "Tab")
+                press(self.root.focus_get(), "Return")
+                self.assertEqual(len(reminder.load_reminders()), before + 1)
+                self.assertIsNone(self.app.editor)
+                self.assertIs(self.root.focus_get(), self.app.tree)
+                toolbar = self.app.toolbar
+                assert_fits(toolbar)
+                self.assertGreater(self.app.tree.winfo_height(), 130)
+                self.root.geometry("1280x540")
+                self.root.update()
+                self.assertEqual(self.app.toolbar_controls.grid_info()["row"], 0)
+                assert_fits(toolbar)
 
     def test_day_refresh_waits_for_open_editor(self):
         self.add_item()

@@ -493,7 +493,8 @@ class CarReminderApp:
             except tk.TclError:
                 pass
         root.geometry("940x540")
-        root.minsize(720, 380)
+        font_height = tkfont.Font(root=root, family="Segoe UI", size=10).metrics("linespace")
+        root.minsize(720, 380 + max(0, font_height - 20) * 6)
         self.editor = None
         self.load_error = False
         self.last_deleted = None
@@ -517,17 +518,20 @@ class CarReminderApp:
 
     def build_ui(self):
         apply_theme(self.root)
-        toolbar = ttk.Frame(self.root, padding=(20, 18))
+        toolbar = ttk.Frame(self.root, padding=(12, 8))
         toolbar.pack(fill=tk.X)
         brand = ttk.Frame(toolbar)
-        brand.pack(side=tk.LEFT)
+        brand.grid(row=0, column=0, sticky=tk.W)
         ttk.Label(brand, text="\ue804", style="Car.TLabel").pack(side=tk.LEFT, padx=(0, 12))
         ttk.Label(brand, text="Сроки автомобиля", style="Title.TLabel").pack(side=tk.LEFT)
-        self.add_button = ttk.Button(toolbar, text="+ Добавить", style="Primary.TButton", command=self.open_editor)
+        controls = ttk.Frame(toolbar)
+        toolbar.columnconfigure(0, weight=1)
+        controls.grid(row=0, column=1, sticky=tk.E)
+        self.add_button = ttk.Button(controls, text="+ Добавить", style="Primary.TButton", command=self.open_editor)
         self.add_button.pack(side=tk.RIGHT)
         if self.load_error:
             self.add_button.state(["disabled"])
-        data_button = ttk.Menubutton(toolbar, text="Данные")
+        data_button = ttk.Menubutton(controls, text="Данные")
         data_button.pack(side=tk.RIGHT, padx=(0, 8))
         data_menu = tk.Menu(data_button, tearoff=False)
         data_menu.add_command(label="Сохранить копию…", command=self.export_backup)
@@ -536,13 +540,18 @@ class CarReminderApp:
             data_menu.entryconfigure(0, state=tk.DISABLED)
         self.data_menu = data_menu
         data_button.configure(menu=data_menu)
-        self.actions = ttk.Frame(toolbar)
+        self.actions = ttk.Frame(controls)
         self.delete_button = ttk.Button(
             self.actions, text="\ue74d", width=3, style="Danger.Icon.TButton", command=self.delete_selected,
         )
         self.delete_button.pack(side=tk.RIGHT, padx=(8, 12))
         Tooltip(self.delete_button, "Удалить")
         ttk.Button(self.actions, text="Изменить", command=self.edit_selected).pack(side=tk.RIGHT)
+        self.toolbar = toolbar
+        self.toolbar_brand = brand
+        self.toolbar_controls = controls
+        toolbar.bind("<Configure>", self.layout_toolbar)
+        controls.bind("<Configure>", self.layout_toolbar)
         ttk.Separator(self.root).pack(fill=tk.X)
         container = ttk.Frame(self.root, padding=(20, 0, 20, 16), style="Page.TFrame")
         container.pack(fill=tk.BOTH, expand=True)
@@ -550,7 +559,7 @@ class CarReminderApp:
         ttk.Label(self.undo_bar, text="Запись удалена", style="Summary.TLabel").pack(side=tk.LEFT)
         ttk.Button(self.undo_bar, text="Отменить удаление", command=self.undo_delete).pack(side=tk.RIGHT)
         overview = ttk.Frame(container, style="Page.TFrame")
-        overview.pack(fill=tk.X, pady=(16, 16))
+        overview.pack(fill=tk.X, pady=8)
         self.urgent_only = tk.BooleanVar(master=self.root, value=False)
         ttk.Style(self.root).configure("Overview.TCheckbutton", background=COLORS["background"])
         ttk.Checkbutton(
@@ -615,6 +624,17 @@ class CarReminderApp:
         self.note_preview.grid(row=1, column=0, sticky=tk.EW)
         note_scrollbar.grid(row=1, column=1, sticky=tk.NS)
         self.list_frame = list_frame
+
+    def layout_toolbar(self, _event=None):
+        controls = self.toolbar_controls
+        required = self.toolbar_brand.winfo_reqwidth() + controls.winfo_reqwidth() + 34
+        stacked = self.toolbar.winfo_width() < required
+        row = 1 if stacked else 0
+        if controls.grid_info()["row"] != row:
+            controls.grid_configure(
+                row=row, column=0 if stacked else 1,
+                columnspan=2 if stacked else 1, pady=(8, 0) if stacked else 0,
+            )
 
     def selected_index(self):
         selected = self.tree.selection()
