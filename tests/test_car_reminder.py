@@ -292,6 +292,34 @@ class InterfaceTests(unittest.TestCase):
         self.app.apply_filter()
         self.assertEqual(len(self.app.tree.get_children()), 5)
 
+    def test_full_note_follows_selection_and_hides_when_filtered(self):
+        today = date.today()
+        long_note = "Проверить уровень масла и расходники. " * 30 + "\nПоследняя строка"
+        self.app.reminders = [
+            {"kind": "Now", "due_date": reminder.format_date(today), "note": ""},
+            {"kind": "Later", "due_date": reminder.format_date(today + timedelta(days=31)), "note": long_note},
+        ]
+        self.root.geometry("720x380")
+        self.root.deiconify()
+        self.app.refresh_table()
+        self.assertFalse(self.app.note_panel.winfo_manager())
+        self.app.tree.selection_set("1")
+        self.root.update()
+        self.assertTrue(self.app.note_panel.winfo_ismapped())
+        self.assertEqual(self.app.note_preview.get("1.0", "end-1c"), long_note)
+        self.assertEqual(str(self.app.note_preview.cget("state")), "disabled")
+        self.assertLess(self.app.note_preview.yview()[1], 1)
+        self.assertGreater(self.app.tree.winfo_height(), 100)
+        self.app.tree.selection_set("0")
+        self.root.update()
+        self.assertFalse(self.app.note_panel.winfo_manager())
+        self.assertEqual(self.app.note_preview.get("1.0", "end-1c"), "")
+        self.app.tree.selection_set("1")
+        self.root.update()
+        self.app.urgent_only.set(True)
+        self.app.apply_filter()
+        self.assertFalse(self.app.note_panel.winfo_manager())
+
     def test_add_edit_and_add_while_row_selected(self):
         self.add_item()
         self.assertEqual(len(self.app.reminders), 1)

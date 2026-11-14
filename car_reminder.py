@@ -599,6 +599,22 @@ class CarReminderApp:
         self.tree.bind("<Return>", self.edit_selected)
         self.tree.bind("<Delete>", self.delete_selected)
         self.tree.bind("<Escape>", self.clear_selection)
+        self.note_panel = ttk.Frame(container, padding=(0, 8, 0, 0), style="Page.TFrame")
+        self.note_panel.columnconfigure(0, weight=1)
+        ttk.Label(self.note_panel, text="Полная заметка", style="Summary.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 4),
+        )
+        self.note_preview = tk.Text(
+            self.note_panel, height=3, width=1, wrap=tk.WORD, state=tk.DISABLED,
+            background=COLORS["surface"], foreground=COLORS["text"],
+            highlightbackground=COLORS["border"], highlightcolor=COLORS["accent"],
+            highlightthickness=1, relief=tk.FLAT, padx=8, pady=4, takefocus=True,
+        )
+        note_scrollbar = ttk.Scrollbar(self.note_panel, orient=tk.VERTICAL, command=self.note_preview.yview)
+        self.note_preview.configure(yscrollcommand=note_scrollbar.set)
+        self.note_preview.grid(row=1, column=0, sticky=tk.EW)
+        note_scrollbar.grid(row=1, column=1, sticky=tk.NS)
+        self.list_frame = list_frame
 
     def selected_index(self):
         selected = self.tree.selection()
@@ -633,10 +649,25 @@ class CarReminderApp:
         self.on_select()
 
     def on_select(self, _event=None):
-        if self.selected_index() is None:
+        index = self.selected_index()
+        if index is None:
             self.actions.pack_forget()
         else:
             self.actions.pack(side=tk.RIGHT)
+        note = self.reminders[index].get("note", "") if index is not None else ""
+        if self.note_preview.get("1.0", "end-1c") != note:
+            self.note_preview.configure(state=tk.NORMAL)
+            self.note_preview.delete("1.0", tk.END)
+            self.note_preview.insert("1.0", note)
+            self.note_preview.configure(state=tk.DISABLED)
+            self.note_preview.yview_moveto(0)
+        if note.strip():
+            if not self.note_panel.winfo_manager():
+                self.note_panel.pack(side=tk.BOTTOM, fill=tk.X, before=self.list_frame)
+        else:
+            if self.root.focus_get() == self.note_preview:
+                self.tree.focus_set()
+            self.note_panel.pack_forget()
 
     def commit(self, updated, parent=None, selected_item=None, restoring=False):
         if self.load_error and not restoring:
