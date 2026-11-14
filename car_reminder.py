@@ -325,12 +325,23 @@ class DatePicker(tk.Toplevel):
         self.year, self.month = year_index + 1, month_index + 1
         self.render()
 
+    def move_day_focus(self, current, offset):
+        ordinal = current.toordinal() + offset
+        if 1 <= ordinal <= date.max.toordinal():
+            target = date.fromordinal(ordinal)
+            if (target.year, target.month) != (self.year, self.month):
+                self.year, self.month = target.year, target.month
+                self.render()
+            self.day_buttons[target].focus_set()
+        return "break"
+
     def render(self):
         self.heading.configure(text=f"{self.MONTHS[self.month - 1]} {self.year}")
         self.previous.configure(state="disabled" if (self.year, self.month) == (1, 1) else "normal")
         self.following.configure(state="disabled" if (self.year, self.month) == (9999, 12) else "normal")
         for child in self.days.winfo_children():
             child.destroy()
+        self.day_buttons = {}
         for column, name in enumerate(("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")):
             ttk.Label(self.days, text=name, anchor=tk.CENTER).grid(row=0, column=column, sticky=tk.EW)
         weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(self.year, self.month)
@@ -342,7 +353,11 @@ class DatePicker(tk.Toplevel):
                 button.grid(row=row + 1, column=column, padx=1, pady=1)
                 if day:
                     value = date(self.year, self.month, day)
+                    self.day_buttons[value] = button
                     button.configure(command=lambda value=value: self.choose(value))
+                    for arrow, offset in (("Left", -1), ("Right", 1), ("Up", -7), ("Down", 7)):
+                        button.bind(f"<{arrow}>", lambda _event, value=value, offset=offset:
+                                    self.move_day_focus(value, offset))
                     if value == self.selected:
                         button.configure(style="Selected.Day.TButton")
                         button.focus_set()

@@ -326,6 +326,25 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(dialog.date_var.get(), "29.02.2028")
         dialog.close()
 
+    def test_calendar_arrows_cross_month_without_selecting_date(self):
+        self.app.open_editor()
+        dialog = self.app.editor
+        dialog.date_var.set("28.02.2028")
+        dialog.open_calendar()
+        picker, = [child for child in dialog.winfo_children() if isinstance(child, reminder.DatePicker)]
+        picker.withdraw()
+
+        self.assertEqual(picker.move_day_focus(date(2028, 2, 28), 1), "break")
+        self.assertIn(date(2028, 2, 29), picker.day_buttons)
+        self.assertEqual(picker.move_day_focus(date(2028, 2, 29), 1), "break")
+        self.assertEqual((picker.year, picker.month), (2028, 3))
+        self.assertEqual(dialog.date_var.get(), "28.02.2028")
+        picker.move_day_focus(date(2028, 3, 1), -7)
+        self.assertEqual((picker.year, picker.month), (2028, 2))
+        picker.day_buttons[date(2028, 2, 23)].invoke()
+        self.assertEqual(dialog.date_var.get(), "23.02.2028")
+        dialog.close()
+
     def test_day_change_refreshes_status_preserves_selection(self):
         self.add_item(due=reminder.format_date(date.today() - timedelta(days=1)))
         self.app.current_day = date.today() - timedelta(days=1)
