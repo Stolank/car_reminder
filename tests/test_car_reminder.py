@@ -139,6 +139,40 @@ class InterfaceTests(unittest.TestCase):
         self.error.assert_called_once()
         self.assertEqual(working.read_bytes(), original)
 
+    def test_unchanged_form_closes_without_confirmation(self):
+        self.app.open_editor()
+        dialog = self.app.editor
+        original = dialog.note_var.get()
+        dialog.note_var.set("Unsaved")
+        dialog.note_var.set(original)
+        with patch.object(reminder.messagebox, "askyesno") as confirm:
+            dialog.request_close()
+        confirm.assert_not_called()
+        self.assertIsNone(self.app.editor)
+
+    def test_dirty_form_preserves_input_until_discard_confirmed(self):
+        self.add_item()
+        self.app.edit_selected()
+        dialog = self.app.editor
+        dialog.note_var.set("Unsaved")
+        with patch.object(reminder.messagebox, "askyesno", return_value=False) as confirm:
+            self.app.request_close()
+            dialog.request_close()
+            self.assertEqual(confirm.call_count, 2)
+            self.assertIs(self.app.editor, dialog)
+            self.assertEqual(dialog.note_var.get(), "Unsaved")
+            confirm.return_value = True
+            dialog.request_close()
+        self.assertIsNone(self.app.editor)
+        self.assertEqual(reminder.load_reminders()[0]["note"], "")
+
+    def test_successful_save_does_not_ask_to_discard(self):
+        with patch.object(reminder.messagebox, "askyesno") as confirm:
+            self.add_item()
+        confirm.assert_not_called()
+        self.assertIsNone(self.app.editor)
+        self.assertEqual(len(reminder.load_reminders()), 1)
+
     def test_restore_validates_confirms_and_preserves_original(self):
         self.add_item()
         working = Path(reminder.DATA_FILE)

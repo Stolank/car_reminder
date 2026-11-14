@@ -390,6 +390,7 @@ class ReminderDialog(tk.Toplevel):
         self.kind_var = tk.StringVar(self, value=item.get("kind", DEFAULT_TYPES[0]))
         self.date_var = tk.StringVar(self, value=item.get("due_date", ""))
         self.note_var = tk.StringVar(self, value=item.get("note", ""))
+        self.initial_values = self.form_values()
         header = ttk.Frame(self, padding=(24, 20, 24, 0))
         header.pack(fill=tk.X)
         ttk.Label(header, text=self.title(), style="DialogTitle.TLabel").pack(anchor=tk.W)
@@ -411,11 +412,11 @@ class ReminderDialog(tk.Toplevel):
         ttk.Entry(body, textvariable=self.note_var).grid(row=5, column=0, sticky=tk.EW, pady=(4, 20))
         actions = ttk.Frame(body)
         actions.grid(row=6, column=0, sticky=tk.E)
-        ttk.Button(actions, text="Отмена", command=self.close).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(actions, text="Отмена", command=self.request_close).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(actions, text="Сохранить", style="Primary.TButton", command=self.save).pack(side=tk.LEFT)
         self.bind("<Return>", self.on_enter)
-        self.bind("<Escape>", lambda _event: self.close())
-        self.protocol("WM_DELETE_WINDOW", self.close)
+        self.bind("<Escape>", self.request_close)
+        self.protocol("WM_DELETE_WINDOW", self.request_close)
         center_window(self, app.root)
         self.grab_set()
         self.date_entry.focus_set()
@@ -425,6 +426,22 @@ class ReminderDialog(tk.Toplevel):
             event.widget.invoke()
         else:
             self.save()
+        return "break"
+
+    def form_values(self):
+        return self.kind_var.get(), self.date_var.get(), self.note_var.get()
+
+    def can_discard(self):
+        return self.form_values() == self.initial_values or messagebox.askyesno(
+            APP_TITLE,
+            "Закрыть без сохранения? Изменения в форме будут потеряны.",
+            default=messagebox.NO,
+            parent=self,
+        )
+
+    def request_close(self, _event=None):
+        if self.can_discard():
+            self.close()
         return "break"
 
     def open_calendar(self, _event=None):
@@ -489,7 +506,7 @@ class CarReminderApp:
         self.build_ui()
         self.refresh_table()
         self.timer = root.after(30_000, self.check_day)
-        root.protocol("WM_DELETE_WINDOW", self.close)
+        root.protocol("WM_DELETE_WINDOW", self.request_close)
         if self.load_error:
             messagebox.showerror(
                 APP_TITLE,
@@ -773,6 +790,10 @@ class CarReminderApp:
             self.current_day = today
             self.refresh_table(item)
         self.timer = self.root.after(30_000, self.check_day)
+
+    def request_close(self):
+        if self.editor is None or self.editor.can_discard():
+            self.close()
 
     def close(self):
         self.root.after_cancel(self.timer)
