@@ -8,7 +8,7 @@
 
 ```powershell
 python -m pip install --target output/packaging-tools PyInstaller==6.22.3
-python -B -m unittest discover -s tests -p test_car_reminder.py -v
+python -B -m unittest discover -s tests -v
 ./build-windows.ps1
 ```
 

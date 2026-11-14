@@ -166,7 +166,7 @@ python car_reminder.py
 Команда для повторного запуска из папки проекта:
 
 ```powershell
-python -B -m unittest discover -s tests -p test_car_reminder.py -v
+python -B -m unittest discover -s tests -v
 ```
 
 ## 11. Границы текущей версии
@@ -183,7 +183,7 @@ python -B -m unittest discover -s tests -p test_car_reminder.py -v
 
 За главное окно отвечает `CarReminderApp`, за форму — `ReminderDialog`, за календарь — `DatePicker`, за подсказки — `Tooltip`. Это классы: части программы, которые объединяют связанные данные и действия.
 
-Чтение и запись данных находятся в `load_reminders` и `save_reminders`. Расчёт текстового статуса находится в `reminder_status`.
+Чтение, запись и проверка резервных копий находятся в `reminder_storage.py`. Их можно проверить без открытия окна командой `python -B -m unittest discover -s tests -p test_reminder_storage.py`. Расчёт текстового статуса остаётся в `reminder_status` в основном файле.
 
 Для продолжения можно написать:
 

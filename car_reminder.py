@@ -1,28 +1,18 @@
 #Программа-напоминалка для автомобиля
 import calendar
-import json
 import os
-import shutil
-import sys
-import tempfile
 from datetime import date, datetime
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
+import reminder_storage as storage
+
 
 APP_TITLE = "Напоминалка для автомобиля"
-def reminder_data_path():
-    if getattr(sys, "frozen", False):
-        local_dir = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
-        return os.path.join(local_dir, "CarReminder", "reminders.json")
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "reminders.json")
-
-
-DATA_FILE = reminder_data_path()
+DATA_FILE = storage.reminder_data_path()
 DATE_FORMAT = "%d.%m.%Y"
 WARNING_DAYS = 30
-BACKUP_FORMAT = "car-reminder-desktop"
 
 COLORS = {
     "background": "#f4f6f5",
@@ -128,110 +118,6 @@ def parse_date(value):
 
 def format_date(value):
     return f"{value.day:02d}.{value.month:02d}.{value.year:04d}"
-
-
-def load_reminders():
-    if not os.path.exists(DATA_FILE):
-        return []
-
-    with open(DATA_FILE, "r", encoding="utf-8") as file:
-        data = json.load(file)
-    if not isinstance(data, list):
-        raise ValueError("Ожидался список напоминаний")
-
-    reminders = []
-    for item in data:
-        if not isinstance(item, dict) or not {"kind", "due_date"} <= item.keys():
-            raise ValueError("Неверный формат напоминания")
-        if "kind" in item and "due_date" in item:
-            reminders.append(
-                {
-                    "kind": str(item.get("kind", "")).strip(),
-                    "due_date": str(item.get("due_date", "")).strip(),
-                    "note": str(item.get("note", "")).strip(),
-                }
-            )
-    return reminders
-
-
-def save_reminders(reminders):
-    write_json(DATA_FILE, reminders)
-
-
-def read_backup(path):
-    with open(path, "r", encoding="utf-8-sig") as file:
-        data = json.load(file)
-    if isinstance(data, dict):
-        if data.get("format") != BACKUP_FORMAT or type(data.get("version")) is not int or data["version"] != 1:
-            raise ValueError("Это не поддерживаемая копия настольной версии.")
-        data = data.get("reminders")
-    if not isinstance(data, list):
-        raise ValueError("Ожидался список напоминаний.")
-    for item in data:
-        if (not isinstance(item, dict)
-                or not all(isinstance(item.get(key), str) for key in ("kind", "due_date"))
-                or not item["kind"].strip()
-                or not isinstance(item.get("note", ""), str)):
-            raise ValueError("В копии есть запись с неверной структурой.")
-    reminders = [{key: item.get(key, "") for key in ("kind", "due_date", "note")} for item in data]
-    try:
-        for item in reminders:
-            for value in item.values():
-                value.encode("utf-8")
-    except UnicodeEncodeError as error:
-        raise ValueError("В копии есть повреждённые символы.") from error
-    return reminders
-
-
-def is_active_data_file(path):
-    if os.path.normcase(os.path.realpath(path)) == os.path.normcase(os.path.realpath(DATA_FILE)):
-        return True
-    try:
-        return os.path.samefile(path, DATA_FILE)
-    except FileNotFoundError:
-        return False
-
-
-def preserve_data_file():
-    try:
-        source = open(DATA_FILE, "rb")
-    except FileNotFoundError:
-        return None
-    path = None
-    try:
-        with source, tempfile.NamedTemporaryFile(
-            mode="wb", dir=os.path.dirname(DATA_FILE), delete=False,
-            prefix=f"car-reminders-backup-before-restore-{date.today().isoformat()}-", suffix=".json",
-        ) as safety:
-            path = safety.name
-            shutil.copyfileobj(source, safety)
-            safety.flush()
-            os.fsync(safety.fileno())
-        return path
-    except OSError:
-        if path is not None:
-            os.unlink(path)
-        raise
-
-
-def write_json(path, data):
-    directory = os.path.dirname(os.path.abspath(path))
-    os.makedirs(directory, exist_ok=True)
-    temporary_path = None
-    try:
-        # Replace the original only after the complete new file is on disk.
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=directory,
-            prefix=".reminders-", suffix=".tmp", delete=False,
-        ) as file:
-            temporary_path = file.name
-            json.dump(data, file, ensure_ascii=False, indent=2)
-            file.flush()
-            os.fsync(file.fileno())
-        os.replace(temporary_path, path)
-    finally:
-        if temporary_path is not None and os.path.exists(temporary_path):
-            os.unlink(temporary_path)
 
 
 def reminder_status(due_date, today=None):
@@ -499,7 +385,7 @@ class CarReminderApp:
         self.load_error = False
         self.last_deleted = None
         try:
-            self.reminders = load_reminders()
+            self.reminders = storage.load_reminders(DATA_FILE)
         except (OSError, ValueError):
             self.reminders = []
             self.load_error = True
@@ -693,7 +579,7 @@ class CarReminderApp:
         if self.load_error and not restoring:
             return False
         try:
-            save_reminders(updated)
+            storage.save_reminders(DATA_FILE, updated)
         except (OSError, UnicodeError):
             messagebox.showerror(
                 APP_TITLE,
@@ -723,9 +609,9 @@ class CarReminderApp:
         if not path:
             return
         try:
-            if is_active_data_file(path):
+            if storage.is_active_data_file(path, DATA_FILE):
                 raise ValueError("Выберите другой файл: это рабочий файл напоминаний.")
-            write_json(path, {"format": BACKUP_FORMAT, "version": 1, "reminders": self.reminders})
+            storage.write_backup(path, self.reminders)
         except (OSError, ValueError) as error:
             messagebox.showerror(APP_TITLE, f"Не удалось сохранить копию.\n{error}", parent=self.root)
             return
@@ -738,9 +624,9 @@ class CarReminderApp:
         if not path:
             return
         try:
-            if is_active_data_file(path):
+            if storage.is_active_data_file(path, DATA_FILE):
                 raise ValueError("Выберите копию, а не рабочий файл напоминаний.")
-            restored = read_backup(path)
+            restored = storage.read_backup(path)
         except (OSError, ValueError) as error:
             messagebox.showerror(APP_TITLE, f"Не удалось прочитать копию.\n{error}", parent=self.root)
             return
@@ -752,7 +638,7 @@ class CarReminderApp:
         ):
             return
         try:
-            safety_path = preserve_data_file()
+            safety_path = storage.preserve_data_file(DATA_FILE)
         except OSError as error:
             messagebox.showerror(APP_TITLE, f"Не удалось сохранить прежние данные.\n{error}", parent=self.root)
             return

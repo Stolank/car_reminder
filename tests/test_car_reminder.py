@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import car_reminder as reminder
+import reminder_storage as storage
 from windows_instance import WindowsInstance
 
 
@@ -48,47 +49,7 @@ class InstanceTests(unittest.TestCase):
                 reopened.close()
 
 
-class StorageTests(unittest.TestCase):
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.path = os.path.join(self.directory.name, "reminders.json")
-        self.data_patch = patch.object(reminder, "DATA_FILE", self.path)
-        self.data_patch.start()
-        self.addCleanup(self.data_patch.stop)
-
-    def test_packaged_data_uses_user_directory(self):
-        with patch.object(sys, "frozen", True, create=True), patch.dict(
-            os.environ, {"LOCALAPPDATA": self.directory.name}
-        ):
-            target = Path(reminder.reminder_data_path())
-        self.assertEqual(target, Path(self.directory.name) / "CarReminder" / "reminders.json")
-        with patch.object(reminder, "DATA_FILE", str(target)):
-            reminder.save_reminders([])
-            self.assertEqual(reminder.load_reminders(), [])
-
-    def test_round_trip_russian_and_missing_file(self):
-        self.assertEqual(reminder.load_reminders(), [])
-        items = [{"kind": "Техосмотр", "due_date": "22.10.2026", "note": "Документы"}]
-        reminder.save_reminders(items)
-        self.assertEqual(reminder.load_reminders(), items)
-        self.assertIn("Техосмотр", Path(self.path).read_text(encoding="utf-8"))
-
-    def test_failed_replace_preserves_original_and_cleans_temp(self):
-        reminder.save_reminders([])
-        before = Path(self.path).read_bytes()
-        with patch.object(reminder.os, "replace", side_effect=PermissionError):
-            with self.assertRaises(OSError):
-                reminder.save_reminders([{"kind": "Changed"}])
-        self.assertEqual(Path(self.path).read_bytes(), before)
-        self.assertEqual(os.listdir(self.directory.name), ["reminders.json"])
-
-    def test_invalid_file_is_not_silently_treated_as_empty(self):
-        for value in (None, {}, [None], [{"kind": "Missing date"}]):
-            Path(self.path).write_text(json.dumps(value), encoding="utf-8")
-            with self.assertRaises(ValueError):
-                reminder.load_reminders()
-
+class DateTests(unittest.TestCase):
     def test_dates_and_status_boundaries(self):
         today = date(2026, 10, 22)
         for offset, expected in ((-1, "Просрочено на 1 дн."), (0, "Срок сегодня"),
@@ -133,7 +94,7 @@ class InterfaceTests(unittest.TestCase):
             reminder.messagebox, "showinfo"
         ):
             self.app.export_backup()
-        self.assertEqual(reminder.read_backup(copy), self.app.reminders)
+        self.assertEqual(storage.read_backup(copy), self.app.reminders)
         with patch.object(reminder.filedialog, "asksaveasfilename", return_value=str(working)):
             self.app.export_backup()
         self.error.assert_called_once()
@@ -164,14 +125,14 @@ class InterfaceTests(unittest.TestCase):
             confirm.return_value = True
             dialog.request_close()
         self.assertIsNone(self.app.editor)
-        self.assertEqual(reminder.load_reminders()[0]["note"], "")
+        self.assertEqual(storage.load_reminders(reminder.DATA_FILE)[0]["note"], "")
 
     def test_successful_save_does_not_ask_to_discard(self):
         with patch.object(reminder.messagebox, "askyesno") as confirm:
             self.add_item()
         confirm.assert_not_called()
         self.assertIsNone(self.app.editor)
-        self.assertEqual(len(reminder.load_reminders()), 1)
+        self.assertEqual(len(storage.load_reminders(reminder.DATA_FILE)), 1)
 
     def test_restore_validates_confirms_and_preserves_original(self):
         self.add_item()
@@ -191,7 +152,7 @@ class InterfaceTests(unittest.TestCase):
             self.assertFalse(list(working.parent.glob("car-reminders-backup-before-restore-*")))
             confirm.return_value = True
             self.app.restore_backup()
-        self.assertEqual(reminder.load_reminders(), [])
+        self.assertEqual(storage.load_reminders(reminder.DATA_FILE), [])
         saved, = working.parent.glob("car-reminders-backup-before-restore-*")
         self.assertEqual(saved.read_bytes(), original)
 
@@ -209,7 +170,7 @@ class InterfaceTests(unittest.TestCase):
         with patch.object(reminder.filedialog, "askopenfilename", return_value=str(copy)), patch.object(
             reminder.messagebox, "askyesno", return_value=True
         ), patch.object(reminder.messagebox, "showinfo"):
-            with patch.object(reminder, "preserve_data_file", side_effect=PermissionError):
+            with patch.object(storage, "preserve_data_file", side_effect=PermissionError):
                 self.app.restore_backup()
             self.assertTrue(self.app.load_error)
             self.assertEqual(working.read_bytes(), damaged)
@@ -241,7 +202,7 @@ class InterfaceTests(unittest.TestCase):
         with patch.object(reminder.messagebox, "showinfo") as info:
             self.add_item(due=future)
         self.assertIn("скрыта фильтром", info.call_args.args[1])
-        self.assertEqual(reminder.load_reminders()[0]["due_date"], future)
+        self.assertEqual(storage.load_reminders(reminder.DATA_FILE)[0]["due_date"], future)
         self.assertFalse(self.app.tree.get_children())
         self.app.urgent_only.set(False)
         self.app.apply_filter()
@@ -252,12 +213,12 @@ class InterfaceTests(unittest.TestCase):
         with patch.object(reminder.messagebox, "askyesno", return_value=True):
             self.app.delete_selected()
         self.add_item("Страховка", "01.01.2027")
-        with patch.object(reminder, "save_reminders", side_effect=OSError):
+        with patch.object(storage, "save_reminders", side_effect=OSError):
             self.app.undo_delete()
         self.assertIsNotNone(self.app.last_deleted)
         self.app.undo_delete()
         self.app.undo_delete()
-        self.assertCountEqual([item["kind"] for item in reminder.load_reminders()], ["Техосмотр", "Страховка"])
+        self.assertCountEqual([item["kind"] for item in storage.load_reminders(reminder.DATA_FILE)], ["Техосмотр", "Страховка"])
 
     def test_calendar_enter_chooses_focused_day_without_saving(self):
         self.app.open_editor()
@@ -331,7 +292,7 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(self.app.reminders[0]["note"], "Изменено")
         self.add_item("Замена масла", "23.10.2026")
         self.assertEqual(len(self.app.reminders), 2)
-        self.assertEqual(len(reminder.load_reminders()), 2)
+        self.assertEqual(len(storage.load_reminders(reminder.DATA_FILE)), 2)
 
     def test_invalid_date_and_cancel_leave_data_unchanged(self):
         self.add_item(due="31.02.2026")
@@ -344,12 +305,12 @@ class InterfaceTests(unittest.TestCase):
 
     def test_failed_save_keeps_form_and_original_data(self):
         self.add_item()
-        original = reminder.load_reminders()
+        original = storage.load_reminders(reminder.DATA_FILE)
         self.app.edit_selected()
         dialog = self.app.editor
         dialog.withdraw()
         dialog.note_var.set("Unsaved")
-        with patch.object(reminder, "save_reminders", side_effect=OSError):
+        with patch.object(storage, "save_reminders", side_effect=OSError):
             dialog.save()
         self.assertEqual(self.app.reminders, original)
         self.assertIs(self.app.editor, dialog)
@@ -362,12 +323,12 @@ class InterfaceTests(unittest.TestCase):
             self.app.delete_selected()
         self.assertEqual(len(self.app.reminders), 1)
         with patch.object(reminder.messagebox, "askyesno", return_value=True):
-            with patch.object(reminder, "save_reminders", side_effect=OSError):
+            with patch.object(storage, "save_reminders", side_effect=OSError):
                 self.app.delete_selected()
             self.assertEqual(len(self.app.reminders), 1)
             self.app.delete_selected()
         self.assertEqual(self.app.reminders, [])
-        self.assertEqual(reminder.load_reminders(), [])
+        self.assertEqual(storage.load_reminders(reminder.DATA_FILE), [])
 
     def test_calendar_leap_year_and_month_transitions(self):
         self.app.open_editor()
@@ -493,7 +454,7 @@ class InterfaceTests(unittest.TestCase):
                 self.assertEqual(dialog.date_var.get(), expected)
                 press(dialog.calendar_button, "Tab")
                 press(self.root.focus_get(), "Return")
-                self.assertEqual(len(reminder.load_reminders()), before + 1)
+                self.assertEqual(len(storage.load_reminders(reminder.DATA_FILE)), before + 1)
                 self.assertIsNone(self.app.editor)
                 self.assertIs(self.root.focus_get(), self.app.tree)
                 toolbar = self.app.toolbar
